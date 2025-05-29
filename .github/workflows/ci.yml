@@ -43,7 +43,7 @@ on:
 
 jobs:
   a1to5x:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.0.4
     continue-on-error: false
 
     steps:
