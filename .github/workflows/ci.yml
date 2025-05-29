@@ -335,6 +335,7 @@ jobs:
           echo "**************************************"
           zip -q -r -9 ${{ steps.var.outputs.filename }} *
           cd ..
+          # The zipped file is now in the current directory (root of the runner workspace)
           mv template/${{ steps.var.outputs.filename }} ./
           echo "**************************************"
           ls -al
@@ -346,9 +347,8 @@ jobs:
       - name: Upload ROM to Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: output
-          path: |
-            output
+          name: ${{ steps.var.outputs.filename }} # Use the actual ROM filename as the artifact name
+          path: ${{ steps.var.outputs.filename }} # Point directly to the zipped file
           retention-days: 7
 
       - name: Upload ROM to Anonfile
