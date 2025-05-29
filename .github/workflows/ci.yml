@@ -48,48 +48,59 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Initialization environment
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y git wget curl aria2 python python3 python3-setuptools unzip axel cpio file
+          sudo apt-get install -y git wget curl aria2 python2 python3 python3-setuptools unzip axel cpio file
           pip3 install protobuf
           pip3 install gdown
 
+      - name: Downgrade protobuf
+        run: |
+          pip install --upgrade protobuf==3.20.*
+    
       - id: var
         name: Download
         run: |
           echo "Download"
-          if [[ ${{ github.event.inputs.filelink }} == *"drive.google.com"* ]]; then
-              if [[ ${{ github.event.inputs.filelink }} == *"file"* ]]; then
-                  DOWNLOAD_LINK=$(echo ${{ github.event.inputs.filelink }} | cut -d / -f 6)
+
+          FILELINK="${{ github.event.inputs.filelink }}"
+          FILENAME_INPUT="${{ github.event.inputs.filename }}"
+          MODE="${{ github.event.inputs.mode }}"
+          OUTPUT="${{ github.event.inputs.output }}"
+
+          if [[ "$FILELINK" == *"drive.google.com"* ]]; then
+              if [[ "$FILELINK" == *"file"* ]]; then
+                  DOWNLOAD_LINK=$(echo "$FILELINK" | cut -d / -f 6)
                   echo "DOWNLOAD_LINK: $DOWNLOAD_LINK"
-                  gdown https://drive.google.com/uc?id=${DOWNLOAD_LINK}
-              elif [[ ${{ github.event.inputs.filelink }} == *"id"* ]]; then
-                  DOWNLOAD_LINK1=$(echo ${{ github.event.inputs.filelink }} | cut -d = -f 2 | cut -d '&' -f 1)
-                  DOWNLOAD_LINK2=$(echo ${{ github.event.inputs.filelink }} | cut -d = -f 4)
+                  gdown "https://drive.google.com/uc?id=${DOWNLOAD_LINK}"
+              elif [[ "$FILELINK" == *"id"* ]]; then
+                  DOWNLOAD_LINK1=$(echo "$FILELINK" | cut -d = -f 2 | cut -d '&' -f 1)
+                  DOWNLOAD_LINK2=$(echo "$FILELINK" | cut -d = -f 4)
                   echo "DOWNLOAD_LINK1: $DOWNLOAD_LINK1"
                   echo "DOWNLOAD_LINK2: $DOWNLOAD_LINK2"
-                  gdown https://drive.google.com/uc?id=${DOWNLOAD_LINK1} || gdown https://drive.google.com/uc?id=${DOWNLOAD_LINK2}
+                  gdown "https://drive.google.com/uc?id=${DOWNLOAD_LINK1}" || gdown "https://drive.google.com/uc?id=${DOWNLOAD_LINK2}"
               fi
           else
-              if [[ ! -z "${{ github.event.inputs.filename }}" ]]; then
-                  FILENAME="${{ github.event.inputs.filename }}"
-                  ${{ github.event.inputs.mode }} ${{ github.event.inputs.filelink }} -${{ github.event.inputs.output }} "$FILENAME"
+              if [[ ! -z "$FILENAME_INPUT" ]]; then
+                  $MODE "$FILELINK" -$OUTPUT "$FILENAME_INPUT"
               else
-                  ${{ github.event.inputs.mode }} ${{ github.event.inputs.filelink }}
+                  $MODE "$FILELINK"
               fi
           fi
+
           ls
           FILENAME="$(find . -size +100M -exec ls -lS {} \+ | head -1 | awk '{print $9}')"
           if [[ -z "$FILENAME" ]]; then
-              exit 1
               echo "The file was not downloaded successfully"
+              exit 1
           fi 
+
           echo "FILENAME: $FILENAME"
-          FILENAME=$(basename ${FILENAME})
-          NAME=$(basename $FILENAME .zip)
+          FILENAME=$(basename "$FILENAME")
+          NAME=$(basename "$FILENAME" .zip)
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
           echo "name=$NAME" >> $GITHUB_OUTPUT
 
@@ -335,7 +346,6 @@ jobs:
           echo "**************************************"
           zip -q -r -9 ${{ steps.var.outputs.filename }} *
           cd ..
-          # The zipped file is now in the current directory (root of the runner workspace)
           mv template/${{ steps.var.outputs.filename }} ./
           echo "**************************************"
           ls -al
@@ -345,10 +355,11 @@ jobs:
           echo "" >> boby.txt
 
       - name: Upload ROM to Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.var.outputs.filename }} # Use the actual ROM filename as the artifact name
-          path: ${{ steps.var.outputs.filename }} # Point directly to the zipped file
+          name: output
+          path: |
+            output
           retention-days: 7
 
       - name: Upload ROM to Anonfile
@@ -416,4 +427,3 @@ jobs:
           body_path: boby.txt
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE }}
-
